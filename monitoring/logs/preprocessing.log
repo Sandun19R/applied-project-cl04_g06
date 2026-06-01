@@ -1,0 +1,53 @@
+2026-05-31 19:00:12,775 - INFO - 
+============================================================
+2026-05-31 19:00:12,776 - INFO - BRIDGE DATA PREPROCESSING PIPELINE
+2026-05-31 19:00:12,776 - INFO - ============================================================
+2026-05-31 19:00:12,777 - INFO - ============================================================
+2026-05-31 19:00:12,777 - INFO - LOAD DATASET
+2026-05-31 19:00:12,777 - INFO - ============================================================
+2026-05-31 19:00:13,091 - INFO - Date range: 2023-01-01 00:00:00 -> 2023-01-30 23:59:00
+2026-05-31 19:00:13,091 - INFO - Loaded dataset: C:\Users\sandu\Downloads\Final repo2\applied-project-cl04_g06\data\raw_dataset\bridge_digital_twin_dataset.csv
+2026-05-31 19:00:13,092 - INFO - Shape: 43,200 rows, 54 columns
+2026-05-31 19:00:13,174 - INFO - Duplicates removed: 0
+2026-05-31 19:00:13,175 - INFO - Columns dropped: 13
+2026-05-31 19:00:13,175 - INFO - - Vibration_Anomaly_Location
+2026-05-31 19:00:13,175 - INFO - - SHI_Predicted_24h_Ahead
+2026-05-31 19:00:13,175 - INFO - - SHI_Predicted_7d_Ahead
+2026-05-31 19:00:13,175 - INFO - - SHI_Predicted_30d_Ahead
+2026-05-31 19:00:13,175 - INFO - - Bridge_Mood_Meter
+2026-05-31 19:00:13,175 - INFO - - Probability_of_Failure_PoF
+2026-05-31 19:00:13,175 - INFO - - Maintenance_Alert
+2026-05-31 19:00:13,175 - INFO - - Estimated_Repair_Cost_USD_incremental
+2026-05-31 19:00:13,175 - INFO - - Carbon_Footprint_tCO2e_incremental
+2026-05-31 19:00:13,175 - INFO - - Energy_Harvesting_Potential_W
+2026-05-31 19:00:13,175 - INFO - - Simulated_Water_Flow_m3s
+2026-05-31 19:00:13,175 - INFO - - Axle_Counts_pmin
+2026-05-31 19:00:13,175 - INFO - - Air_Quality_Index_AQI
+2026-05-31 19:00:13,183 - INFO - Missing values before: 69074
+2026-05-31 19:00:13,294 - INFO - Missing values after: 0
+2026-05-31 19:00:13,488 - INFO - Total outlier values corrected: 2543
+2026-05-31 19:00:13,488 - INFO - No categorical columns to encode.
+2026-05-31 19:00:13,554 - INFO - Scaled columns: 35
+2026-05-31 19:00:13,555 - INFO - Scaler saved to: C:\Users\sandu\Downloads\Final repo2\applied-project-cl04_g06\artifacts\preprocessing\scaler.pkl
+2026-05-31 19:00:13,557 - INFO - Feature columns saved to: C:\Users\sandu\Downloads\Final repo2\applied-project-cl04_g06\artifacts\preprocessing\feature_columns.json
+2026-05-31 19:00:13,566 - INFO - X_new saved to: C:\Users\sandu\Downloads\Final repo2\applied-project-cl04_g06\artifacts\data\X_new.npy
+2026-05-31 19:00:13,568 - INFO - Data version saved to: C:\Users\sandu\Downloads\Final repo2\applied-project-cl04_g06\artifacts\metadata\data_version.txt
+2026-05-31 19:00:13,568 - INFO - ============================================================
+2026-05-31 19:00:13,568 - INFO - VALIDATION REPORT
+2026-05-31 19:00:13,568 - INFO - ============================================================
+2026-05-31 19:00:13,568 - INFO - Original shape: (43200, 54)
+2026-05-31 19:00:13,569 - INFO - Cleaned shape: (43200, 41)
+2026-05-31 19:00:13,573 - INFO - Missing values: 0
+2026-05-31 19:00:13,628 - INFO - Duplicate rows: 0
+2026-05-31 19:00:13,628 - INFO - Target summary:
+2026-05-31 19:00:13,632 - INFO - count    43200.000000
+mean         0.815946
+std          0.052700
+min          0.292081
+25%          0.797216
+50%          0.822932
+75%          0.845439
+max          0.907657
+2026-05-31 19:00:16,222 - INFO - Cleaned dataset saved to: C:\Users\sandu\Downloads\Final repo2\applied-project-cl04_g06\data\cleaned\bridge_cleaned.csv
+2026-05-31 19:00:16,222 - INFO - Processed dataset saved to: C:\Users\sandu\Downloads\Final repo2\applied-project-cl04_g06\data\processed\bridge_processed.csv
+2026-05-31 19:00:16,222 - INFO - Preprocessing pipeline complete.

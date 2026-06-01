@@ -1,0 +1,142 @@
+schema: '2.0'
+stages:
+  preprocess:
+    cmd: python src/data_preprocessing.py
+    deps:
+    - path: data/new_data.csv
+      hash: md5
+      md5: 28597b520a3e08f9b2924511d56050dc
+      size: 37720822
+    - path: data/raw_dataset/bridge_digital_twin_dataset.csv
+      hash: md5
+      md5: 28597b520a3e08f9b2924511d56050dc
+      size: 37720822
+    - path: src/data_preprocessing.py
+      hash: md5
+      md5: a541e80131cf3a08a29f9e56d9dbdf82
+      size: 10016
+    outs:
+    - path: artifacts/data/X_new.npy
+      hash: md5
+      md5: 5469cbe82de8866e80dce580458bdd8b
+      size: 13478528
+    - path: artifacts/metadata/data_version.txt
+      hash: md5
+      md5: 1823282ffbfada99c2b00f9e23f59b9e
+      size: 22
+    - path: artifacts/preprocessing/feature_columns.json
+      hash: md5
+      md5: ef890dde3af7ff1d784155363482c5c8
+      size: 1111
+    - path: artifacts/preprocessing/scaler.pkl
+      hash: md5
+      md5: 8eb95464262e1385b665d4e210f8ae7c
+      size: 2479
+    - path: data/cleaned/bridge_cleaned.csv
+      hash: md5
+      md5: 3ef4d9a9f0c83f4dd3643240d8cf0b8c
+      size: 29558016
+    - path: data/processed/bridge_processed.csv
+      hash: md5
+      md5: 1eb360f5ad8da610e0bfe7b729cea478
+      size: 32233708
+  train:
+    cmd: python src/model.py
+    deps:
+    - path: data/processed/bridge_processed.csv
+      hash: md5
+      md5: 1eb360f5ad8da610e0bfe7b729cea478
+      size: 32233708
+    - path: src/model.py
+      hash: md5
+      md5: 5d9da1a22a10f8254a2b1247b02907e7
+      size: 8316
+    outs:
+    - path: artifacts/data/X_test.npy
+      hash: md5
+      md5: 9cc1471092f6e977727191c402f9492d
+      size: 2695808
+    - path: artifacts/data/X_train.npy
+      hash: md5
+      md5: bace0c783a3417cd764ba399bd9f1099
+      size: 10782848
+    - path: artifacts/data/y_test.npy
+      hash: md5
+      md5: 2a33a90e126e50df27a829a43af58e0e
+      size: 69248
+    - path: artifacts/data/y_train.npy
+      hash: md5
+      md5: 38d4d16bc498ad601d820b0ad721e7a6
+      size: 276608
+    - path: artifacts/metadata/model_version.txt
+      hash: md5
+      md5: 7508ee599051807170e5d7681dea1da1
+      size: 37
+    - path: artifacts/metrics/training_history.json
+      hash: md5
+      md5: 1ec96a2b97fd1cb9f1bda837bb2e738c
+      size: 569
+    - path: artifacts/models/bridge_model.pkl
+      hash: md5
+      md5: 35c22c9c089f428a262b49f4dc5189c8
+      size: 38589025
+  evaluate:
+    cmd: python src/evaluate.py
+    deps:
+    - path: artifacts/data/X_test.npy
+      hash: md5
+      md5: 9cc1471092f6e977727191c402f9492d
+      size: 2695808
+    - path: artifacts/data/y_test.npy
+      hash: md5
+      md5: 2a33a90e126e50df27a829a43af58e0e
+      size: 69248
+    - path: artifacts/models/bridge_model.pkl
+      hash: md5
+      md5: 35c22c9c089f428a262b49f4dc5189c8
+      size: 38589025
+    - path: src/evaluate.py
+      hash: md5
+      md5: bd671d54419b5fd8dba1c5e5ff0fabb1
+      size: 2218
+    outs:
+    - path: artifacts/metrics/evaluation_metrics.json
+      hash: md5
+      md5: 0516eeb5d82e6c44a5372797f7933e03
+      size: 81
+  monitor:
+    cmd: python src/monitor.py
+    deps:
+    - path: artifacts/metrics/evaluation_metrics.json
+      hash: md5
+      md5: 0516eeb5d82e6c44a5372797f7933e03
+      size: 81
+    - path: data/processed/bridge_processed.csv
+      hash: md5
+      md5: 1eb360f5ad8da610e0bfe7b729cea478
+      size: 32233708
+    - path: src/monitor.py
+      hash: md5
+      md5: 3f5a71f0f88044d906df0ba12a79466f
+      size: 5492
+    outs:
+    - path: artifacts/metrics/monitoring_metrics.json
+      hash: md5
+      md5: 88b1c11b5d2a058f04ebbcc2593c9cfa
+      size: 7049
+    - path: monitoring/alerts/monitoring_alerts.txt
+      hash: md5
+      md5: 1855bb0afe515527ee9d658b1da1eb55
+      size: 818
+    - path: monitoring/logs/drift_detection.log
+      hash: md5
+      md5: b374135afcbce8c9aad053610ada908e
+      size: 3492
+    - path: monitoring/logs/monitoring.log
+      hash: md5
+      md5: cbad5981d876ec4042940bc3e8b9deba
+      size: 5128
+    - path: monitoring/reports/drift_report.json
+      hash: md5
+      md5: 88b1c11b5d2a058f04ebbcc2593c9cfa
+      size: 7049

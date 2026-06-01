@@ -1,0 +1,75 @@
+name: Retrain Bridge SHI Model
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'data/**'
+      - 'train/**'
+      - 'test/**'
+      - 'src/**'
+      - 'dvc.yaml'
+      - 'dvc.lock'
+      - 'requirements.txt'
+      - '.github/workflows/retrain-on-push.yml'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install dvc
+
+      - name: Verify DVC installation
+        run: python -m dvc --version
+
+      - name: Configure DVC remote credentials
+        run: |
+          python -m dvc remote modify origin --local auth basic
+          python -m dvc remote modify origin --local user "${{ secrets.DAGSHUB_USER }}"
+          python -m dvc remote modify origin --local password "${{ secrets.DAGSHUB_TOKEN }}"
+
+      - name: Pull DVC data and artefacts
+        run: python -m dvc pull
+
+      - name: Run DVC retraining pipeline
+        run: python -m dvc repro
+
+      - name: Push DVC artefacts
+        run: python -m dvc push
+
+      - name: Upload retraining artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bridge-retraining-results
+          path: |
+            artifacts/
+            reports/
+            monitoring/
+            data/cleaned/
+            data/processed/

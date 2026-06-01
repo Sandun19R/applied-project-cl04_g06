@@ -1,0 +1,51 @@
+stages:
+  preprocess:
+    cmd: python src/data_preprocessing.py
+    deps:
+      - src/data_preprocessing.py
+      - data/new_data.csv
+      - data/raw_dataset/bridge_digital_twin_dataset.csv
+    outs:
+      - data/cleaned/bridge_cleaned.csv
+      - data/processed/bridge_processed.csv
+      - artifacts/data/X_new.npy
+      - artifacts/preprocessing/scaler.pkl
+      - artifacts/preprocessing/feature_columns.json
+      - artifacts/metadata/data_version.txt
+
+  train:
+    cmd: python src/model.py
+    deps:
+      - src/model.py
+      - data/processed/bridge_processed.csv
+    outs:
+      - artifacts/models/bridge_model.pkl
+      - artifacts/data/X_train.npy
+      - artifacts/data/y_train.npy
+      - artifacts/data/X_test.npy
+      - artifacts/data/y_test.npy
+      - artifacts/metrics/training_history.json
+      - artifacts/metadata/model_version.txt
+
+  evaluate:
+    cmd: python src/evaluate.py
+    deps:
+      - src/evaluate.py
+      - artifacts/models/bridge_model.pkl
+      - artifacts/data/X_test.npy
+      - artifacts/data/y_test.npy
+    outs:
+      - artifacts/metrics/evaluation_metrics.json
+
+  monitor:
+    cmd: python src/monitor.py
+    deps:
+      - src/monitor.py
+      - data/processed/bridge_processed.csv
+      - artifacts/metrics/evaluation_metrics.json
+    outs:
+      - monitoring/reports/drift_report.json
+      - artifacts/metrics/monitoring_metrics.json
+      - monitoring/alerts/monitoring_alerts.txt
+      - monitoring/logs/monitoring.log
+      - monitoring/logs/drift_detection.log

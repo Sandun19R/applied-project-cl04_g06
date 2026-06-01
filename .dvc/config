@@ -1,0 +1,4 @@
+[core]
+    remote = origin
+['remote "origin"']
+    url = https://dagshub.com/TevinSeneviratne/applied-project-cl04_g06.dvc

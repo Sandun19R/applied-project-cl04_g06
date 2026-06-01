@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bridge SHI — Live Monitoring Dashboard | CLO4_G06</title>
+  <meta name="description" content="Live monitoring dashboard for the Bridge Structural Health Index MLOps pipeline — CLO4_G06." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #060c18;
+      --surface:    #0d1525;
+      --card:       #111e32;
+      --border:     #1a2d47;
+      --accent:     #3b82f6;
+      --accent2:    #6366f1;
+      --green:      #10b981;
+      --yellow:     #f59e0b;
+      --red:        #ef4444;
+      --orange:     #f97316;
+      --purple:     #a855f7;
+      --text:       #e2e8f0;
+      --muted:      #4b6280;
+      --radius:     14px;
+      --ok-clr:     #10b981;
+      --warn-clr:   #f59e0b;
+      --high-clr:   #f97316;
+      --crit-clr:   #ef4444;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── NAVBAR ───────────────────────────────────────── */
+    .navbar {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(6,12,24,.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      display: flex; align-items: center; gap: 20px;
+      height: 62px;
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 800; font-size: 1rem;
+      background: linear-gradient(90deg, #60a5fa, #818cf8);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .nav-brand span { font-size: 1.4rem; }
+    .nav-spacer { flex: 1; }
+    .system-status {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid;
+      font-size: .78rem; font-weight: 700; letter-spacing: .05em;
+      transition: all .4s;
+    }
+    .system-status.ok     { background:rgba(16,185,129,.12); border-color:rgba(16,185,129,.35); color:#6ee7b7; }
+    .system-status.warn   { background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.35); color:#fcd34d; }
+    .system-status.high   { background:rgba(249,115,22,.12); border-color:rgba(249,115,22,.35); color:#fdba74; }
+    .system-status.crit   { background:rgba(239,68,68,.15);  border-color:rgba(239,68,68,.4);   color:#fca5a5;
+                            animation: flashRed 1.5s ease-in-out infinite; }
+    @keyframes flashRed {
+      0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+      50%      { box-shadow: 0 0 12px 3px rgba(239,68,68,.4); }
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    .ok   .status-dot { background: var(--ok-clr);   box-shadow: 0 0 8px var(--ok-clr); }
+    .warn .status-dot { background: var(--warn-clr);  box-shadow: 0 0 8px var(--warn-clr); }
+    .high .status-dot { background: var(--high-clr);  box-shadow: 0 0 8px var(--high-clr); }
+    .crit .status-dot { background: var(--crit-clr);  box-shadow: 0 0 8px var(--crit-clr); }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+    .refresh-btn {
+      background: rgba(59,130,246,.12);
+      border: 1px solid rgba(59,130,246,.3);
+      color: #60a5fa;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: .78rem; font-weight: 600;
+      transition: background .2s, transform .1s;
+    }
+    .refresh-btn:hover { background: rgba(59,130,246,.22); transform: scale(1.04); }
+    .refresh-btn:active { transform: scale(.97); }
+
+    .nav-meta { font-size: .72rem; color: var(--muted); }
+
+    /* ── LAYOUT ───────────────────────────────────────── */
+    .container { max-width: 1400px; margin: 0 auto; padding: 28px 24px 64px; }
+
+    .section-title {
+      font-size: .78rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .1em;
+      color: var(--muted);
+      margin-bottom: 14px; padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── KPI STRIP ────────────────────────────────────── */
+    .kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      position: relative; overflow: hidden;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,.5); }
+    .kpi-card::after {
+      content: '';
+      position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+      background: var(--kpi-color, var(--accent));
+      opacity: .6;
+    }
+    .kpi-icon { font-size: 1.6rem; margin-bottom: 8px; display: block; }
+    .kpi-val {
+      font-size: 2rem; font-weight: 800;
+      color: var(--kpi-color, var(--accent));
+      line-height: 1; margin-bottom: 4px;
+    }
+    .kpi-lbl { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+
+    /* ── GRID 2-COL ───────────────────────────────────── */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    .grid-equal {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+
+    /* ── PANEL ────────────────────────────────────────── */
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+    }
+    .panel-title {
+      font-size: .78rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .08em;
+      color: var(--muted); margin-bottom: 18px;
+    }
+    .chart-wrap { position: relative; }
+    .chart-wrap.tall  { height: 320px; }
+    .chart-wrap.short { height: 260px; }
+
+    /* ── SHI GAUGE ────────────────────────────────────── */
+    .gauge-wrap {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 8px 0 0;
+      height: 240px;
+    }
+    .gauge-container {
+      position: relative;
+      width: 100%;
+      max-width: 250px;
+      height: 125px;
+      margin-top: 15px;
+    }
+    .gauge-label { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+    .gauge-text-center {
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translate(-50%, 0);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+    }
+    .gauge-value {
+      font-size: 2.8rem; font-weight: 900; line-height: 1.1;
+    }
+    .gauge-band {
+      font-size: .78rem; font-weight: 700;
+      padding: 4px 12px; border-radius: 999px;
+      display: inline-block;
+      margin-top: 2px;
+    }
+    .band-ok   { background:rgba(16,185,129,.15); color:#6ee7b7; border:1px solid rgba(16,185,129,.3); }
+    .band-warn { background:rgba(245,158,11,.15); color:#fcd34d; border:1px solid rgba(245,158,11,.3); }
+    .band-high { background:rgba(249,115,22,.15); color:#fdba74; border:1px solid rgba(249,115,22,.3); }
+    .band-crit { background:rgba(239,68,68,.15);  color:#fca5a5; border:1px solid rgba(239,68,68,.3); }
+
+    /* ── ALERT FEED ───────────────────────────────────── */
+    .alert-feed {
+      max-height: 420px; overflow-y: auto;
+      scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    }
+    .alert-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px; margin-bottom: 6px;
+      border-left: 3px solid;
+      background: rgba(255,255,255,.02);
+      animation: slideIn .25s ease;
+    }
+    @keyframes slideIn { from { opacity:0; transform:translateX(-10px); } to { opacity:1; transform:none; } }
+    .alert-item.ok   { border-color: var(--ok-clr);   }
+    .alert-item.warn { border-color: var(--warn-clr);  }
+    .alert-item.high { border-color: var(--high-clr);  }
+    .alert-item.crit { border-color: var(--crit-clr);  }
+    .alert-icon { font-size: 1.1rem; margin-top: 1px; }
+    .alert-body { flex: 1; min-width: 0; }
+    .alert-meta { font-size: .7rem; color: var(--muted); margin-bottom: 2px; font-family: 'JetBrains Mono', monospace; }
+    .alert-msg  { font-size: .82rem; font-weight: 600; }
+    .alert-action { font-size: .72rem; color: var(--muted); margin-top: 2px; }
+    .alert-shi {
+      font-size: .9rem; font-weight: 800;
+      min-width: 50px; text-align: right;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .shi-ok   { color: var(--ok-clr);   }
+    .shi-warn { color: var(--warn-clr);  }
+    .shi-high { color: var(--high-clr);  }
+    .shi-crit { color: var(--crit-clr);  }
+
+    /* ── ANOMALY PANEL ────────────────────────────────── */
+    .anomaly-stat-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    }
+    .anomaly-stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px; text-align: center;
+    }
+    .anomaly-val { font-size: 1.5rem; font-weight: 800; color: var(--accent); }
+    .anomaly-lbl { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 3px; }
+
+    /* ── BAND LEGEND ──────────────────────────────────── */
+    .band-legend {
+      display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
+    }
+    .band-legend-item {
+      display: flex; align-items: center; gap: 6px;
+      font-size: .75rem; color: var(--muted);
+    }
+    .band-legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+    /* ── LOADING ──────────────────────────────────────── */
+    #loading-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+      transition: opacity .5s;
+    }
+    .spinner {
+      width: 52px; height: 52px; border-radius: 50%;
+      border: 3px solid var(--border); border-top-color: var(--accent);
+      animation: spin 1s linear infinite;
+    }
+    .spinner-label { color: var(--muted); font-size: .9rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-overlay.hidden { opacity: 0; pointer-events: none; }
+
+    /* ── TOAST ────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 500;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 18px;
+      font-size: .82rem; color: var(--text);
+      opacity: 0; transform: translateY(12px);
+      transition: opacity .3s, transform .3s;
+      max-width: 280px;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: none; }
+
+    /* ── FOOTER ───────────────────────────────────────── */
+    footer {
+      text-align: center; padding: 24px;
+      border-top: 1px solid var(--border);
+      color: var(--muted); font-size: .78rem;
+    }
+
+    /* ── SCROLLBAR ────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <p class="spinner-label">Loading monitoring data…</p>
+  <p style="color:var(--muted);font-size:.75rem;">Parsing SHI alert history</p>
+</div>
+
+<!-- Toast notification -->
+<div id="toast"></div>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="nav-brand"><span>🌉</span> Bridge SHI Monitor</div>
+  <div class="nav-spacer"></div>
+  <div class="nav-meta" id="nav-meta">—</div>
+  <div class="system-status ok" id="system-status">
+    <div class="status-dot"></div>
+    <span id="status-text">LOADING</span>
+  </div>
+  <button class="refresh-btn" id="refresh-btn" onclick="refreshData()">↻ Refresh</button>
+</nav>
+
+<main class="container">
+
+  <!-- KPI Strip -->
+  <div class="kpi-strip" style="margin-top:8px">
+    <div class="kpi-card" style="--kpi-color:#3b82f6">
+      <span class="kpi-icon">📋</span>
+      <div class="kpi-val" id="kpi-total">—</div>
+      <div class="kpi-lbl">Total Alerts</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#ef4444">
+      <span class="kpi-icon">🚨</span>
+      <div class="kpi-val" id="kpi-critical">—</div>
+      <div class="kpi-lbl">Critical</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#f97316">
+      <span class="kpi-icon">⚠️</span>
+      <div class="kpi-val" id="kpi-high">—</div>
+      <div class="kpi-lbl">High Risk</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#f59e0b">
+      <span class="kpi-icon">🔔</span>
+      <div class="kpi-val" id="kpi-warn">—</div>
+      <div class="kpi-lbl">Warnings</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#10b981">
+      <span class="kpi-icon">📡</span>
+      <div class="kpi-val" id="kpi-latest-shi">—</div>
+      <div class="kpi-lbl">Latest SHI</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#6366f1">
+      <span class="kpi-icon">🕐</span>
+      <div class="kpi-val" id="kpi-timespan" style="font-size:1.1rem">—</div>
+      <div class="kpi-lbl">Time Range</div>
+    </div>
+  </div>
+
+  <!-- Timeline + Gauge -->
+  <p class="section-title">📈 SHI Timeline</p>
+  <div class="grid-2" style="margin-bottom:28px">
+    <div class="panel">
+      <div class="panel-title">Structural Health Index Over Time (Last 500 Readings)</div>
+      <div class="band-legend" id="timeline-legend">
+        <div class="band-legend-item"><div class="band-legend-dot" style="background:#ef4444"></div>Critical (&lt;40)</div>
+        <div class="band-legend-item"><div class="band-legend-dot" style="background:#f97316"></div>High Risk (40–60)</div>
+        <div class="band-legend-item"><div class="band-legend-dot" style="background:#f59e0b"></div>Moderate (60–80)</div>
+        <div class="band-legend-item"><div class="band-legend-dot" style="background:#10b981"></div>Healthy (≥80)</div>
+      </div>
+      <div class="chart-wrap tall"><canvas id="timeline-chart"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Latest SHI Reading</div>
+      <div class="gauge-wrap">
+        <div class="gauge-label">Structural Health Index</div>
+        <div class="gauge-container">
+          <canvas id="gauge-chart"></canvas>
+          <div class="gauge-text-center">
+            <div class="gauge-value" id="gauge-val" style="color:var(--green)">—</div>
+            <div class="gauge-band band-ok" id="gauge-band">Loading…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Distribution + Alert Feed -->
+  <p class="section-title">🔔 Alert Analysis</p>
+  <div class="grid-equal" style="margin-bottom:28px">
+    <div class="panel">
+      <div class="panel-title">Alert Distribution by Risk Band</div>
+      <div class="chart-wrap short"><canvas id="donut-chart"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Live Alert Feed</span>
+        <span style="font-size:.7rem;color:var(--muted)">Last 30 events</span>
+      </div>
+      <div class="alert-feed" id="alert-feed">
+        <div style="color:var(--muted);font-size:.85rem;padding:12px">Loading alerts…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Anomaly Stats -->
+  <p class="section-title">🔍 Anomaly Detection</p>
+  <div class="panel" style="margin-bottom:28px">
+    <div class="panel-title">Sensor Anomaly Summary</div>
+    <div class="anomaly-stat-grid" id="anomaly-stats">
+      <div class="anomaly-stat"><div class="anomaly-val" id="an-total">—</div><div class="anomaly-lbl">Rows Checked</div></div>
+      <div class="anomaly-stat"><div class="anomaly-val" id="an-flagged" style="color:var(--red)">—</div><div class="anomaly-lbl">Anomalous Rows</div></div>
+      <div class="anomaly-stat"><div class="anomaly-val" id="an-rate" style="color:var(--yellow)">—</div><div class="anomaly-lbl">Anomaly Rate</div></div>
+    </div>
+    <div id="sensor-stats-wrap" style="margin-top:20px;overflow-x:auto;"></div>
+  </div>
+
+</main>
+
+<footer>
+  Bridge Structural Health Monitoring · CLO4_G06 · Applied Project Task 3
+  &nbsp;|&nbsp; Auto-refreshes every 30 s
+  &nbsp;|&nbsp; Data from <code style="font-family:JetBrains Mono,monospace;font-size:.7rem">monitoring/alerts/shi_alerts.json</code>
+</footer>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  DATA PATHS  (relative from reports/)
+// ══════════════════════════════════════════════════════════════
+const PATHS = {
+  shiAlerts:     '../monitoring/alerts/shi_alerts.json',
+  sensorStats:   '../monitoring/alerts/sensor_stats.json',
+  anomalyResult: '../monitoring/alerts/anomaly_results.csv',
+};
+
+// ══════════════════════════════════════════════════════════════
+//  SAMPLE FALLBACK — realistic SHI readings
+// ══════════════════════════════════════════════════════════════
+function buildSampleAlerts() {
+  const out = [];
+  const bands = [
+    { label:'Critical',      level:'CRITICAL', range:[20,39],  msg:'Critical Bridge Health Detected',       action:'Immediate inspection recommended. Notify structural engineer on-call.' },
+    { label:'High Risk',     level:'HIGH',     range:[40,59],  msg:'High Bridge Health Risk Detected',      action:'Inspection required within 24 hours. Consider load restrictions.' },
+    { label:'Moderate Risk', level:'WARNING',  range:[60,79],  msg:'Moderate Bridge Health Risk Detected',  action:'Schedule inspection within 7 days. Increase monitoring frequency.' },
+  ];
+  const start = new Date('2023-06-01T00:00:00');
+  let t = new Date(start);
+  let shi = 72;
+  for (let i = 0; i < 600; i++) {
+    shi = Math.max(15, Math.min(85, shi + (Math.random() - 0.48) * 3.5));
+    const band = bands.find(b => shi >= b.range[0] && shi <= b.range[1])
+                 || { label:'Healthy', level:'OK', msg:'Bridge health is within normal range.', action:'No action required.' };
+    if (band.level !== 'OK') {
+      out.push({ timestamp: t.toISOString().replace('T',' ').slice(0,19), shi_score: +shi.toFixed(2),
+        band_label: band.label, level: band.level, message: band.msg, action: band.action });
+    }
+    t = new Date(t.getTime() + 60000);
+  }
+  return out;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════
+let allAlerts   = [];
+let isLive      = false;
+let timelineChart, donutChart, gaugeChart;
+let refreshTimer;
+
+// ══════════════════════════════════════════════════════════════
+//  UTILITIES
+// ══════════════════════════════════════════════════════════════
+async function tryFetch(url) {
+  try { const r = await fetch(url); if (!r.ok) throw 0; return await r.text(); }
+  catch { return null; }
+}
+
+function levelClass(level) {
+  return level === 'CRITICAL' ? 'crit'
+       : level === 'HIGH'     ? 'high'
+       : level === 'WARNING'  ? 'warn' : 'ok';
+}
+function shiClass(shi) {
+  return shi < 40 ? 'shi-crit' : shi < 60 ? 'shi-high' : shi < 80 ? 'shi-warn' : 'shi-ok';
+}
+function shiColor(shi) {
+  return shi < 40 ? '#ef4444' : shi < 60 ? '#f97316' : shi < 80 ? '#f59e0b' : '#10b981';
+}
+function levelIcon(level) {
+  return level === 'CRITICAL' ? '🚨' : level === 'HIGH' ? '⚠️' : level === 'WARNING' ? '🔔' : '✅';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function fmtDate(ts) {
+  const d = new Date(ts);
+  if (isNaN(d)) return ts;
+  return d.toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER — NAVBAR / KPI
+// ══════════════════════════════════════════════════════════════
+function renderNavbar(alerts) {
+  if (!alerts.length) return;
+  const latest = alerts[alerts.length - 1];
+  const worstLevel = alerts.some(a => a.level === 'CRITICAL') ? 'crit'
+                   : alerts.some(a => a.level === 'HIGH')     ? 'high'
+                   : alerts.some(a => a.level === 'WARNING')  ? 'warn' : 'ok';
+
+  const statusEl = document.getElementById('system-status');
+  statusEl.className = 'system-status ' + worstLevel;
+  document.getElementById('status-text').textContent =
+    worstLevel === 'crit' ? '⚠ CRITICAL' :
+    worstLevel === 'high' ? 'HIGH RISK'  :
+    worstLevel === 'warn' ? 'WARNING'    : 'OPERATIONAL';
+
+  const now = new Date().toLocaleTimeString('en-AU', { hour12: false });
+  document.getElementById('nav-meta').textContent =
+    (isLive ? '● Live' : '◌ Sample') + ' · Last refresh: ' + now;
+}
+
+function renderKPI(alerts) {
+  const total    = alerts.length;
+  const critical = alerts.filter(a => a.level === 'CRITICAL').length;
+  const high_    = alerts.filter(a => a.level === 'HIGH').length;
+  const warn     = alerts.filter(a => a.level === 'WARNING').length;
+  const latestSHI = alerts.length ? alerts[alerts.length - 1].shi_score : 0;
+
+  document.getElementById('kpi-total').textContent    = total.toLocaleString();
+  document.getElementById('kpi-critical').textContent = critical.toLocaleString();
+  document.getElementById('kpi-high').textContent     = high_.toLocaleString();
+  document.getElementById('kpi-warn').textContent     = warn.toLocaleString();
+  document.getElementById('kpi-latest-shi').textContent = latestSHI.toFixed(1);
+
+  // Time range
+  const first = new Date(alerts[0].timestamp);
+  const last  = new Date(alerts[alerts.length - 1].timestamp);
+  const days  = Math.round((last - first) / 86400000);
+  document.getElementById('kpi-timespan').textContent = isNaN(days) ? '—' : days + 'd';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER — GAUGE
+// ══════════════════════════════════════════════════════════════
+function renderGauge(shi) {
+  const gaugeVal  = document.getElementById('gauge-val');
+  const gaugeBand = document.getElementById('gauge-band');
+  const color = shiColor(shi);
+  gaugeVal.textContent = shi.toFixed(1);
+  gaugeVal.style.color = color;
+
+  let bandLabel, bandClass;
+  if      (shi >= 80) { bandLabel = '✅ Healthy';       bandClass = 'band-ok'; }
+  else if (shi >= 60) { bandLabel = '⚠ Moderate Risk';  bandClass = 'band-warn'; }
+  else if (shi >= 40) { bandLabel = '🔶 High Risk';     bandClass = 'band-high'; }
+  else                { bandLabel = '🚨 Critical';       bandClass = 'band-crit'; }
+
+  gaugeBand.textContent = bandLabel;
+  gaugeBand.className   = 'gauge-band ' + bandClass;
+
+  const ctx = document.getElementById('gauge-chart').getContext('2d');
+  if (gaugeChart) gaugeChart.destroy();
+  gaugeChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      datasets: [{
+        data: [shi, 100 - shi],
+        backgroundColor: [color, 'rgba(255,255,255,.06)'],
+        borderWidth: 0,
+        circumference: 180,
+        rotation: 270,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '78%',
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      animation: { duration: 800, easing: 'easeInOutQuart' }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER — TIMELINE CHART
+// ══════════════════════════════════════════════════════════════
+function renderTimeline(alerts) {
+  const slice = alerts.slice(-500);
+  const labels = slice.map(a => a.timestamp);
+  const values = slice.map(a => a.shi_score);
+  const colors = values.map(v => shiColor(v));
+
+  const ctx = document.getElementById('timeline-chart').getContext('2d');
+  if (timelineChart) timelineChart.destroy();
+
+  timelineChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'SHI',
+        data: values,
+        borderColor: function(ctx) { return '#6366f1'; },
+        borderWidth: 1.5,
+        pointBackgroundColor: colors,
+        pointRadius: slice.length > 200 ? 0 : 3,
+        pointHoverRadius: 5,
+        fill: {
+          target: 'origin',
+          above: 'rgba(99,102,241,.07)',
+        },
+        tension: 0.35,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(17,30,50,.95)',
+          borderColor: '#1a2d47',
+          borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            title: items => items[0].label,
+            label: item => ` SHI: ${item.parsed.y.toFixed(2)}`,
+            labelColor: item => ({
+              backgroundColor: shiColor(item.parsed.y),
+              borderColor: 'transparent',
+            })
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#4b6280', maxTicksLimit: 8, maxRotation: 0, font: { size: 10 } },
+          grid:  { color: 'rgba(26,45,71,.6)' },
+        },
+        y: {
+          min: 0, max: 100,
+          ticks: { color: '#4b6280', font: { size: 11 }, stepSize: 20 },
+          grid:  { color: 'rgba(26,45,71,.6)' },
+        }
+      }
+    }
+  });
+
+  // Threshold lines via annotation plugin shim (manual)
+  // We draw threshold reference via a second dataset (invisible)
+  const thresholdPlugin = {
+    id: 'thresholds',
+    afterDraw(chart) {
+      const { ctx, scales: { x, y } } = chart;
+      const thresholds = [
+        { val: 80, color: 'rgba(16,185,129,.35)',  label: 'Healthy' },
+        { val: 60, color: 'rgba(245,158,11,.35)',  label: 'Mod. Risk' },
+        { val: 40, color: 'rgba(239,68,68,.35)',   label: 'High Risk' },
+      ];
+      ctx.save();
+      thresholds.forEach(t => {
+        const yPx = y.getPixelForValue(t.val);
+        ctx.strokeStyle = t.color;
+        ctx.lineWidth   = 1;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(x.left, yPx);
+        ctx.lineTo(x.right, yPx);
+        ctx.stroke();
+        ctx.fillStyle = t.color;
+        ctx.font = '10px Inter, sans-serif';
+        ctx.fillText(t.val, x.right + 4, yPx + 4);
+      });
+      ctx.restore();
+    }
+  };
+  Chart.register(thresholdPlugin);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER — DONUT
+// ══════════════════════════════════════════════════════════════
+function renderDonut(alerts) {
+  const counts = { Critical: 0, 'High Risk': 0, 'Moderate Risk': 0 };
+  alerts.forEach(a => { if (counts[a.band_label] !== undefined) counts[a.band_label]++; });
+
+  const ctx = document.getElementById('donut-chart').getContext('2d');
+  if (donutChart) donutChart.destroy();
+
+  donutChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Critical', 'High Risk', 'Moderate Risk'],
+      datasets: [{
+        data: [counts.Critical, counts['High Risk'], counts['Moderate Risk']],
+        backgroundColor: ['rgba(239,68,68,.8)', 'rgba(249,115,22,.8)', 'rgba(245,158,11,.8)'],
+        borderColor:     ['#ef4444', '#f97316', '#f59e0b'],
+        borderWidth: 2,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '65%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#94a3b8', font: { size: 12 }, padding: 14, usePointStyle: true }
+        },
+        tooltip: {
+          callbacks: {
+            label: item => ` ${item.label}: ${item.parsed.toLocaleString()} alerts (${((item.parsed / alerts.length)*100).toFixed(1)}%)`
+          }
+        }
+      },
+      animation: { duration: 800, easing: 'easeInOutQuart' }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER — ALERT FEED
+// ══════════════════════════════════════════════════════════════
+function renderAlertFeed(alerts) {
+  const feed    = document.getElementById('alert-feed');
+  const recent  = alerts.slice(-30).reverse();
+
+  if (!recent.length) {
+    feed.innerHTML = '<div style="color:var(--muted);font-size:.85rem;padding:12px">No alerts found.</div>';
+    return;
+  }
+
+  feed.innerHTML = recent.map(a => {
+    const cls   = levelClass(a.level);
+    const sCls  = shiClass(a.shi_score);
+    const icon  = levelIcon(a.level);
+    return `<div class="alert-item ${cls}">
+      <div class="alert-icon">${icon}</div>
+      <div class="alert-body">
+        <div class="alert-meta">${a.timestamp || '—'} · ${a.band_label}</div>
+        <div class="alert-msg">${a.message}</div>
+        <div class="alert-action">${a.action}</div>
+      </div>
+      <div class="alert-shi ${sCls}">${a.shi_score.toFixed(1)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  RENDER — ANOMALY
+// ══════════════════════════════════════════════════════════════
+function renderAnomalyFallback() {
+  // If no CSV available, show placeholder stats derived from shi_alerts
+  const critical = allAlerts.filter(a => a.level === 'CRITICAL').length;
+  const total    = allAlerts.length;
+  const rate     = total ? (critical / total * 100).toFixed(1) : '—';
+
+  document.getElementById('an-total').textContent   = total.toLocaleString();
+  document.getElementById('an-flagged').textContent = critical.toLocaleString();
+  document.getElementById('an-rate').textContent    = rate + '%';
+}
+
+async function renderAnomalyFromCSV(csvText) {
+  if (!csvText) { renderAnomalyFallback(); return; }
+  const lines  = csvText.trim().split('\n');
+  const header = lines[0].split(',').map(h => h.trim());
+  const rows   = lines.slice(1).map(l => {
+    const parts = l.split(',');
+    const obj = {};
+    header.forEach((h, i) => obj[h] = parts[i]?.trim());
+    return obj;
+  });
+  const total   = rows.length;
+  const flagged = rows.filter(r => r.is_anomaly === 'True').length;
+  const rate    = total ? (flagged / total * 100).toFixed(1) : '—';
+
+  document.getElementById('an-total').textContent   = total.toLocaleString();
+  document.getElementById('an-flagged').textContent = flagged.toLocaleString();
+  document.getElementById('an-rate').textContent    = rate + '%';
+}
+
+async function renderSensorStats(statsJson) {
+  if (!statsJson) {
+    document.getElementById('sensor-stats-wrap').innerHTML =
+      '<p style="color:var(--muted);font-size:.8rem;padding:8px 0">Run anomaly_detect.py to populate sensor statistics.</p>';
+    return;
+  }
+  let stats;
+  try { stats = JSON.parse(statsJson); } catch { return; }
+
+  const rows = Object.entries(stats).slice(0, 8).map(([sensor, s]) => `
+    <tr>
+      <td style="padding:8px 12px;font-weight:500">${sensor.replace(/_/g,' ')}</td>
+      <td style="padding:8px 12px;font-family:JetBrains Mono,monospace;font-size:.78rem">${(+s.mean).toFixed(3)}</td>
+      <td style="padding:8px 12px;font-family:JetBrains Mono,monospace;font-size:.78rem">${(+s.std).toFixed(3)}</td>
+      <td style="padding:8px 12px;font-family:JetBrains Mono,monospace;font-size:.78rem">${(+s.iqr_lower).toFixed(3)}</td>
+      <td style="padding:8px 12px;font-family:JetBrains Mono,monospace;font-size:.78rem">${(+s.iqr_upper).toFixed(3)}</td>
+    </tr>`).join('');
+
+  document.getElementById('sensor-stats-wrap').innerHTML = `
+    <p style="font-size:.75rem;color:var(--muted);margin-bottom:10px;">Baseline sensor thresholds (fitted on healthy SHI ≥ 0.75)</p>
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+      <thead>
+        <tr>
+          <th style="padding:8px 12px;text-align:left;color:var(--muted);border-bottom:1px solid var(--border);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Sensor</th>
+          <th style="padding:8px 12px;text-align:left;color:var(--muted);border-bottom:1px solid var(--border);font-size:.7rem;text-transform:uppercase">Mean</th>
+          <th style="padding:8px 12px;text-align:left;color:var(--muted);border-bottom:1px solid var(--border);font-size:.7rem;text-transform:uppercase">Std</th>
+          <th style="padding:8px 12px;text-align:left;color:var(--muted);border-bottom:1px solid var(--border);font-size:.7rem;text-transform:uppercase">IQR Lower</th>
+          <th style="padding:8px 12px;text-align:left;color:var(--muted);border-bottom:1px solid var(--border);font-size:.7rem;text-transform:uppercase">IQR Upper</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DATA LOAD + RENDER
+// ══════════════════════════════════════════════════════════════
+async function loadData() {
+  const [alertsRaw, statsRaw, anomalyRaw] = await Promise.all([
+    tryFetch(PATHS.shiAlerts),
+    tryFetch(PATHS.sensorStats),
+    tryFetch(PATHS.anomalyResult),
+  ]);
+
+  let alerts;
+  if (alertsRaw) {
+    try { alerts = JSON.parse(alertsRaw); isLive = true; }
+    catch { alerts = buildSampleAlerts(); isLive = false; }
+  } else {
+    alerts = buildSampleAlerts(); isLive = false;
+  }
+
+  allAlerts = alerts;
+
+  renderNavbar(alerts);
+  renderKPI(alerts);
+
+  const latest = alerts[alerts.length - 1];
+  if (latest) renderGauge(latest.shi_score);
+
+  renderTimeline(alerts);
+  renderDonut(alerts);
+  renderAlertFeed(alerts);
+  await renderAnomalyFromCSV(anomalyRaw);
+  await renderSensorStats(statsRaw);
+
+  if (!isLive) {
+    document.getElementById('last-updated-meta')?.remove();
+    showToast('⚠ Using sample data — run the pipeline to see live metrics');
+  } else {
+    showToast('✓ Live data loaded successfully');
+  }
+
+  // Hide loader
+  setTimeout(() => {
+    document.getElementById('loading-overlay').classList.add('hidden');
+  }, 500);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  AUTO-REFRESH
+// ══════════════════════════════════════════════════════════════
+async function refreshData() {
+  document.getElementById('refresh-btn').textContent = '↻ Refreshing…';
+  await loadData();
+  document.getElementById('refresh-btn').textContent = '↻ Refresh';
+}
+
+function startAutoRefresh(intervalMs = 30000) {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(refreshData, intervalMs);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════
+loadData().then(() => startAutoRefresh(30000));
+</script>
+</body>
+</html>
